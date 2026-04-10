@@ -1,0 +1,17 @@
+0 button
+1 down
+2 fingerprint
+3 hazard
+4 left
+5 pacman
+6 parallelogram
+7 plus
+8 qr
+9 recycle
+10 right
+11 semicircle
+12 star
+13 stop
+14 trapezium
+15 up
+16 background
