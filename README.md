@@ -19,13 +19,12 @@ Suggestions and improvements are welcome!
 3. Open a pull request from their fork back to your repo’s ‎`main`
 
 
-
+## Downloads
 You can download the files by either clicking Code>Download Zip or use this command below to download it using git command in terminal:
----
+
 git clone https://github.com/BenjaminChung05/Pi4_RobotDelivery.git
 cd Pi4_RobotDelivery
-
-
+---
 By default, you will be on main branch. If you ever want to look for extra material used and experiments in version-history, you can use this command:
 
 git checkout version-history
