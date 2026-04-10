@@ -1,0 +1,237 @@
+import cv2
+import numpy as np
+import RPi.GPIO as GPIO
+import time
+
+# =============================================================================
+# 1. TUNING & CONFIGURATION
+# =============================================================================
+BASE_SPEED = 100       # Maximum straight-line speed
+TURN_SPEED = 80        # Pivot speed for sharp 90-degree corners
+U_TURN_SPEED = 60      # Pivot speed for 180-degree turnarounds
+
+# --- PD Controller ---
+Kp = 1.5               # Proportional: Steer intensity
+Kd = 4.0               # Derivative: Shock absorber for high speeds
+
+# --- Vision Settings ---
+THRESHOLD_VAL = 60     # Darker than this = black line
+MAX_VALID_DELTA = 60   # Frame-drop filter: Ignore impossible pixel jumps
+
+# --- Advanced Maneuvers ---
+SHARP_TURN_THRESHOLD = 100  # Jump size to trigger a 90-degree corner
+SHARP_TURN_CONFIRM = 3      # Require 3 frames to confirm to avoid false positives
+U_TURN_SENSITIVITY = 1500   # Pixel mass on both edges required to trigger U-turn
+
+# --- Camera Cropping (Region of Interest) ---
+ROI_TOP = 140
+ROI_BOTTOM = 240
+ROI_LEFT = 0
+ROI_RIGHT = 320
+ROI_CX = (ROI_RIGHT - ROI_LEFT) // 2  # The perfect center (160)
+
+SHOW_DISPLAY = True  # Set to False to save CPU power during the actual race
+
+# =============================================================================
+# 2. MOTOR SETUP
+# =============================================================================
+ENA, IN1, IN2 = 12, 17, 18
+ENB, IN3, IN4 = 13, 22, 23
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup([ENA, IN1, IN2, ENB, IN3, IN4], GPIO.OUT)
+
+pwm_left = GPIO.PWM(ENA, 1000)
+pwm_right = GPIO.PWM(ENB, 1000)
+pwm_left.start(0)
+pwm_right.start(0)
+
+def set_motor(l_speed, r_speed):
+    """ Allows negative speeds to forcefully reverse a wheel for sharp pivots. """
+    l_speed = max(-100, min(100, l_speed))
+    r_speed = max(-100, min(100, r_speed))
+    
+    GPIO.output(IN1, GPIO.HIGH if l_speed >= 0 else GPIO.LOW)
+    GPIO.output(IN2, GPIO.LOW  if l_speed >= 0 else GPIO.HIGH)
+    
+    GPIO.output(IN3, GPIO.HIGH if r_speed >= 0 else GPIO.LOW)
+    GPIO.output(IN4, GPIO.LOW  if r_speed >= 0 else GPIO.HIGH)
+    
+    pwm_left.ChangeDutyCycle(abs(l_speed))
+    pwm_right.ChangeDutyCycle(abs(r_speed))
+
+def stop_motors():
+    pwm_left.ChangeDutyCycle(0)
+    pwm_right.ChangeDutyCycle(0)
+    GPIO.output([IN1, IN2, IN3, IN4], GPIO.LOW)
+
+# =============================================================================
+# 3. ADVANCED MANEUVERS (90-DEGREE & U-TURNS)
+# =============================================================================
+def get_roi_threshold(cap):
+    """ Grabs a quick frame during a turn to check if the line is back. """
+    ret, frame = cap.read()
+    if not ret: return np.zeros((ROI_BOTTOM-ROI_TOP, ROI_RIGHT-ROI_LEFT), dtype=np.uint8)
+    
+    gray = cv2.cvtColor(frame[ROI_TOP:ROI_BOTTOM, ROI_LEFT:ROI_RIGHT], cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, THRESHOLD_VAL, 255, cv2.THRESH_BINARY_INV)
+    return thresh
+
+def perform_turn(direction, cap):
+    print(f"--- 90-DEGREE TURN: {direction.upper()} ---")
+    stop_motors()
+    time.sleep(0.1)
+
+    # Pivot hard
+    set_motor(TURN_SPEED, -TURN_SPEED) if direction == "left" else set_motor(-TURN_SPEED, TURN_SPEED)
+
+    timeout = time.time() + 2.0
+    
+    # Wait until line is back near the center
+    while time.time() < timeout:
+        thresh = get_roi_threshold(cap)
+        if np.sum(thresh[:, ROI_CX-20:ROI_CX+20] == 255) > 150:
+            print("Line Re-Acquired!")
+            break
+
+    stop_motors()
+
+def perform_u_turn(cap):
+    print("--- U-TURN DETECTED ---")
+    stop_motors()
+    time.sleep(0.1)
+    
+    # Spin around
+    set_motor(U_TURN_SPEED, -U_TURN_SPEED)
+    
+    timeout = time.time() + 3.0
+    # Wait for the line to vanish, then reappear
+    while time.time() < timeout:
+        thresh = get_roi_threshold(cap)
+        # Look at the center zone, wait for it to be full of white (the track)
+        if np.sum(thresh[:, ROI_CX-30:ROI_CX+30] == 255) > 300:
+            print("U-Turn Complete!")
+            break
+            
+    stop_motors()
+
+# =============================================================================
+# 4. MAIN HIGH-SPEED LOOP
+# =============================================================================
+def main():
+    print("--- High-Speed OpenCV Tracker Active ---")
+    
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+
+    if not cap.isOpened():
+        print("Error: Camera not found.")
+        return
+
+    time.sleep(2)
+    print("GO! Press Ctrl+C to stop.")
+
+    prev_cx = ROI_CX
+    prev_error = 0
+    sharp_turn_count = 0
+    sharp_turn_dir = None
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+
+            # 1. CROP & THRESHOLD
+            roi_color = frame[ROI_TOP:ROI_BOTTOM, ROI_LEFT:ROI_RIGHT]
+            gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, THRESHOLD_VAL, 255, cv2.THRESH_BINARY_INV)
+            
+            roi_w = thresh.shape[1]
+
+            # 2. CHECK EDGES FOR U-TURN
+            # Look at the far left 1/6th and far right 1/6th of the screen
+            left_count  = np.sum(thresh[:, 0:roi_w//6] == 255)
+            right_count = np.sum(thresh[:, roi_w - roi_w//6:] == 255)
+
+            if left_count > U_TURN_SENSITIVITY and right_count > U_TURN_SENSITIVITY:
+                perform_u_turn(cap)
+                prev_cx = ROI_CX
+                prev_error = 0
+                sharp_turn_count = 0
+                continue # Skip the rest of the math and grab a new frame
+
+            # 3. COLUMN SUM MATH (Super-fast center calculation)
+            
+            normalized_thresh = thresh / 255.0 
+            column_sums = np.sum(normalized_thresh, axis=0)
+            total_weight = np.sum(column_sums)
+
+            if total_weight > 0:
+                indices = np.arange(roi_w)
+                cx = int(np.sum(indices * column_sums) / total_weight)
+                delta = cx - prev_cx
+
+                # --- Frame-Drop Filter ---
+                if abs(delta) > MAX_VALID_DELTA:
+                    cx = prev_cx  
+                    delta = 0
+
+                # --- 90-Degree Corner Detection ---
+                if abs(delta) > SHARP_TURN_THRESHOLD:
+                    direction = "left" if delta < 0 else "right"
+                    
+                    if direction == sharp_turn_dir:
+                        sharp_turn_count += 1
+                    else:
+                        sharp_turn_dir = direction
+                        sharp_turn_count = 1
+
+                    if sharp_turn_count >= SHARP_TURN_CONFIRM:
+                        perform_turn(direction, cap)
+                        sharp_turn_count = 0
+                        sharp_turn_dir = None
+                        prev_error = 0
+                        prev_cx = ROI_CX
+                        continue
+                
+                # --- PD Steering Control ---
+                else:
+                    sharp_turn_count = 0
+                    error = cx - ROI_CX
+                    d_error = error - prev_error   
+                    
+                    correction = (Kp * error) + (Kd * d_error)
+                    set_motor(BASE_SPEED - correction, BASE_SPEED + correction)
+
+                    prev_cx = cx
+                    prev_error = error
+
+                    # Visual Debugging Target
+                    if SHOW_DISPLAY:
+                        cv2.circle(roi_color, (cx, roi_color.shape[0]//2), 8, (0, 255, 0), -1)
+                        cv2.line(roi_color, (ROI_CX, 0), (ROI_CX, roi_color.shape[0]), (0, 0, 255), 1)
+
+            else:
+                # Line lost - coasting
+                prev_error = 0  
+
+            # --- Displays ---
+            if SHOW_DISPLAY:
+                cv2.imshow("Robot Eyes", roi_color)
+                cv2.imshow("Mask", thresh)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+    except KeyboardInterrupt:
+        print("\nManually Stopped.")
+    finally:
+        stop_motors()
+        cap.release()
+        cv2.destroyAllWindows()
+        GPIO.cleanup()
+        print("Done.")
+
+if _name_ == "_main_":
+    main()
