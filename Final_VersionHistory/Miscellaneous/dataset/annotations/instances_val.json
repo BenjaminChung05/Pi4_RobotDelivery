@@ -1,0 +1,186 @@
+{
+  "info": {
+    "description": "Template symbols converted to COCO format",
+    "version": "1.0"
+  },
+  "licenses": [],
+  "images": [
+    {
+      "id": 6,
+      "width": 488,
+      "height": 482,
+      "file_name": "Octagon.png"
+    },
+    {
+      "id": 8,
+      "width": 680,
+      "height": 570,
+      "file_name": "Parallelogram.png"
+    },
+    {
+      "id": 10,
+      "width": 238,
+      "height": 240,
+      "file_name": "QR.png"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 6,
+      "image_id": 6,
+      "category_id": 6,
+      "bbox": [
+        0.0,
+        0.0,
+        488.0,
+        482.0
+      ],
+      "area": 234247.0,
+      "iscrowd": 0,
+      "segmentation": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          481.0,
+          487.0,
+          481.0,
+          487.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "image_id": 8,
+      "category_id": 8,
+      "bbox": [
+        0.0,
+        0.0,
+        680.0,
+        570.0
+      ],
+      "area": 386351.0,
+      "iscrowd": 0,
+      "segmentation": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          569.0,
+          679.0,
+          569.0,
+          679.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": 10,
+      "image_id": 10,
+      "category_id": 10,
+      "bbox": [
+        0.0,
+        0.0,
+        238.0,
+        240.0
+      ],
+      "area": 56643.0,
+      "iscrowd": 0,
+      "segmentation": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          239.0,
+          237.0,
+          239.0,
+          237.0,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "BUTTON",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 2,
+      "name": "DOWN",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 3,
+      "name": "FINGERPRINT",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 4,
+      "name": "HAZARD",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 5,
+      "name": "LEFT",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 6,
+      "name": "OCTAGON",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 7,
+      "name": "PACMAN",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 8,
+      "name": "PARALLELOGRAM",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 9,
+      "name": "PLUS",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 10,
+      "name": "QR",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 11,
+      "name": "RECYCLE",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 12,
+      "name": "RIGHT",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 13,
+      "name": "SEMICIRCLE",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 14,
+      "name": "STAR",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 15,
+      "name": "TRAPEZIUM",
+      "supercategory": "symbol"
+    },
+    {
+      "id": 16,
+      "name": "UP",
+      "supercategory": "symbol"
+    }
+  ]
+}
