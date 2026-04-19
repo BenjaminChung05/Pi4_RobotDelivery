@@ -59,7 +59,7 @@ Y_CENTRE_REF        = 180
 # ══════════════════════════════════════════════════════════════════════
 SAMPLE_DICT = {
     0: (["button.png"],7),
-    1: (["fingerprint.pnsg"],20),
+    1: (["fingerprint.png"],20),
     2: (["qr.png"],17),
     3: (["recycle.png"], 7),
     4: (["hazard.png"],  6) # Lowered for motion blur
